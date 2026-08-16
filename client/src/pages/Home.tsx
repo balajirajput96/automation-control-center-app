@@ -1,33 +1,32 @@
-import { useAuth } from "@/_core/hooks/useAuth";
+import PageHeader from "@/components/PageHeader";
+import StatusBadge from "@/components/StatusBadge";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
-import { Streamdown } from 'streamdown';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
+import { trpc } from "@/lib/trpc";
+import { ArrowUpRight, Bot, CheckCircle2, CircleAlert, Clock3, FolderOpen, Github, ShieldCheck, Workflow } from "lucide-react";
+import { Link } from "wouter";
 
-/**
- * All content in this page are only for example, replace with your own feature implementation
- * When building pages, remember your instructions in Frontend Workflow, Frontend Best Practices, Design Guide and Common Pitfalls
- */
+const serviceIcons = { n8n: Workflow, antigravity: Bot, gemini: Bot, drive: FolderOpen, julius: Clock3, github: Github };
+
 export default function Home() {
-  // The useAuth hook provides authentication state.
-  // To implement login/logout, call logout(), or start login from an event
-  // handler: onClick={() => startLogin()} (imported from "@/const"). Never call
-  // startLogin() during render (no href={startLogin()}) — it mints a one-time
-  // nonce cookie and must run only at the moment of navigation.
-  let { user, loading, error, isAuthenticated, logout } = useAuth();
-
-  // If theme is switchable in App.tsx, we can implement theme toggling like this:
-  // const { theme, toggleTheme } = useTheme();
-
+  const { data, error, isLoading } = trpc.automation.overview.useQuery(undefined, { refetchInterval: 30_000 });
+  if (isLoading || !data) return <div className="space-y-5"><Skeleton className="h-32 w-full" /><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton className="h-44" key={i} />)}</div></div>;
+  if (error) return <Card className="border-rose-400/20 bg-rose-400/5"><CardContent className="flex gap-3 p-6"><CircleAlert className="h-5 w-5 shrink-0 text-rose-200" /><div><p className="font-semibold text-rose-100">Automation snapshot is temporarily unavailable</p><p className="mt-1 text-sm leading-6 text-rose-100/70">The protected data request did not complete. Reload the dashboard to retry the private status snapshot.</p></div></CardContent></Card>;
+  const active = data.services.filter(service => service.status === "active").length;
+  const health = Math.round((active / data.services.length) * 100);
   return (
-    <div className="min-h-screen flex flex-col">
-      <main>
-        {/* Example: lucide-react for icons */}
-        <Loader2 className="animate-spin" />
-        Example Page
-        {/* Example: Streamdown for markdown rendering */}
-        <Streamdown>Any **markdown** content</Streamdown>
-        <Button variant="default">Example Button</Button>
-      </main>
+    <div>
+      <PageHeader eyebrow="Unified automation observability" title="Control room" description="A private operating view for connected automation services, schedule posture, workflow health, and the evidence captured during validation." />
+      <section className="mb-7 grid gap-4 xl:grid-cols-[1.35fr_0.65fr]">
+        <Card className="overflow-hidden border-primary/20 bg-gradient-to-br from-card via-card to-cyan-950/35">
+          <CardContent className="p-6 md:p-7"><div className="flex flex-col gap-8 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-mono text-xs uppercase tracking-[0.18em] text-primary">System health</p><p className="mt-3 text-5xl font-extrabold tracking-[-0.06em]">{health}%</p><p className="mt-3 max-w-md text-sm leading-6 text-muted-foreground">{active} of {data.services.length} tracked services are active. Prepared services are validated but require a persistent host; blocked services require native account completion.</p></div><div className="rounded-2xl border border-cyan-300/15 bg-background/40 p-4"><ShieldCheck className="h-7 w-7 text-cyan-200" /><p className="mt-6 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground">Latest validated signal</p><p className="mt-2 text-sm font-semibold">GitHub automation-control-health passed</p></div></div><Progress value={health} className="mt-7 h-2 bg-muted" /></CardContent>
+        </Card>
+        <Card className="border-border/80"><CardHeader className="pb-3"><CardTitle className="text-sm font-semibold">Schedule posture</CardTitle></CardHeader><CardContent className="space-y-4">{data.schedules.map(schedule => <div key={schedule.id} className="rounded-xl border border-border/80 bg-background/30 p-3"><div className="flex items-start justify-between gap-3"><div><p className="font-mono text-xs text-primary">{schedule.displayTime}</p><p className="mt-1 text-xs text-muted-foreground">{schedule.detail}</p></div><StatusBadge status={schedule.status} /></div><p className="mt-2 text-xs text-muted-foreground">{schedule.enabled ? `Next run: ${schedule.displayTime.startsWith("08:00") ? "08:00 local time" : "09:15 IST"}` : "Paused — configuration retained"}</p></div>)}<Link href="/schedules"><Button variant="outline" className="w-full border-border bg-transparent text-xs">Manage daily schedules <ArrowUpRight className="ml-2 h-3.5 w-3.5" /></Button></Link></CardContent></Card>
+      </section>
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{data.services.map(service => { const Icon = serviceIcons[service.id as keyof typeof serviceIcons] ?? Bot; return <Card key={service.id} className="group border-border/80 bg-card/70 transition-colors hover:border-primary/35"><CardHeader className="flex-row items-start justify-between space-y-0 pb-3"><div className="rounded-xl border border-border bg-background/50 p-2.5"><Icon className="h-4 w-4 text-primary" /></div><StatusBadge status={service.status} /></CardHeader><CardContent><p className="text-base font-bold">{service.name}</p><p className="mt-1 text-sm text-foreground/90">{service.summary}</p><p className="mt-3 min-h-10 text-xs leading-5 text-muted-foreground">{service.detail}</p><div className="mt-5 flex items-center justify-between border-t border-border/70 pt-3 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground"><span>{service.metric}</span><span>{service.verifiedAt}</span></div></CardContent></Card>})}</section>
+      <section className="mt-7 grid gap-4 xl:grid-cols-[1.15fr_0.85fr]"><Card><CardHeader><CardTitle className="text-sm">Latest validated activity</CardTitle></CardHeader><CardContent className="space-y-4">{data.activity.slice(0, 3).map(item => <div key={item.id} className="flex gap-4"><div className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-primary" /><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{item.title}</p><span className="font-mono text-[10px] text-muted-foreground">{item.time}</span></div><p className="mt-1 text-xs leading-5 text-muted-foreground">{item.detail}</p></div></div>)}</CardContent></Card><Card><CardHeader><CardTitle className="text-sm">Quick routes</CardTitle></CardHeader><CardContent className="grid gap-3"><Link href="/workflows"><Button variant="outline" className="h-auto w-full justify-between border-border bg-transparent p-4 text-left"><span><span className="block text-sm font-semibold">n8n workflow readiness</span><span className="mt-1 block text-xs text-muted-foreground">Execution result, timestamp, and deployment posture</span></span><Workflow className="h-4 w-4 text-primary" /></Button></Link><Link href="/implementation"><Button variant="outline" className="h-auto w-full justify-between border-border bg-transparent p-4 text-left"><span><span className="block text-sm font-semibold">Implementation status</span><span className="mt-1 block text-xs text-muted-foreground">Exact completed-work status table</span></span><CheckCircle2 className="h-4 w-4 text-primary" /></Button></Link></CardContent></Card></section>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { AutomationSchedule, InsertUser, automationSchedules, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,4 +89,55 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+const defaultSchedules = [
+  {
+    id: "gemini-spark-briefing",
+    name: "Gemini Spark briefing",
+    displayTime: "08:00 (Gemini Spark briefing)",
+    timezone: "Local time",
+    detail: "Private, read-only morning briefing for priorities, blockers, and approval-needed items.",
+    enabled: true,
+    status: "active" as const,
+  },
+  {
+    id: "daily-control-antigravity-review",
+    name: "Daily Automation Control and Antigravity Review",
+    displayTime: "09:15 IST (Daily Automation Control and Antigravity Review)",
+    timezone: "Asia/Kolkata",
+    detail: "Private control review with Antigravity audit guidance and GitHub workflow validation.",
+    enabled: true,
+    status: "active" as const,
+  },
+];
+
+export function getDefaultAutomationSchedules(): AutomationSchedule[] {
+  return defaultSchedules.map(schedule => ({ ...schedule, updatedAt: new Date(0) }));
+}
+
+async function ensureAutomationSchedules() {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db.select({ id: automationSchedules.id }).from(automationSchedules);
+  const existingIds = new Set(existing.map(item => item.id));
+  const missing = defaultSchedules.filter(schedule => !existingIds.has(schedule.id));
+  if (missing.length) await db.insert(automationSchedules).values(missing);
+}
+
+export async function getAutomationSchedules(): Promise<AutomationSchedule[]> {
+  const db = await getDb();
+  if (!db) return getDefaultAutomationSchedules();
+  await ensureAutomationSchedules();
+  const schedules = await db.select().from(automationSchedules);
+  return schedules.sort((left, right) => left.displayTime.localeCompare(right.displayTime));
+}
+
+export async function setAutomationScheduleEnabled(id: string, enabled: boolean): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database is unavailable");
+  await ensureAutomationSchedules();
+  await db.update(automationSchedules).set({
+    enabled,
+    status: enabled ? "active" : "prepared",
+    updatedAt: new Date(),
+  }).where(eq(automationSchedules.id, id));
+}

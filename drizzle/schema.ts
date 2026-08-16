@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
+import { boolean, int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -25,4 +25,15 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+export const automationSchedules = mysqlTable("automationSchedules", {
+  id: varchar("id", { length: 80 }).primaryKey(),
+  name: varchar("name", { length: 180 }).notNull(),
+  displayTime: varchar("displayTime", { length: 80 }).notNull(),
+  timezone: varchar("timezone", { length: 100 }).notNull(),
+  detail: text("detail").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  status: mysqlEnum("status", ["active", "prepared", "blocked"]).notNull().default("active"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AutomationSchedule = typeof automationSchedules.$inferSelect;

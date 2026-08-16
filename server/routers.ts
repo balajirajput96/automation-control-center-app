@@ -1,7 +1,10 @@
 import { COOKIE_NAME } from "@shared/const";
+import { automationActivity, implementationRows, serviceStatuses } from "../shared/automationData";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
+import { getAutomationSchedules, setAutomationScheduleEnabled } from "./db";
+import { z } from "zod";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -17,12 +20,23 @@ export const appRouter = router({
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  automation: router({
+    overview: protectedProcedure.query(async () => ({
+      services: serviceStatuses,
+      schedules: await getAutomationSchedules(),
+      activity: automationActivity,
+      implementationRows,
+      lastUpdatedAt: new Date(),
+    })),
+    setScheduleEnabled: protectedProcedure.input(z.object({
+      id: z.string().min(1),
+      enabled: z.boolean(),
+    })).mutation(async ({ input }) => {
+      await setAutomationScheduleEnabled(input.id, input.enabled);
+      return { success: true } as const;
+    }),
+  }),
+
 });
 
 export type AppRouter = typeof appRouter;
