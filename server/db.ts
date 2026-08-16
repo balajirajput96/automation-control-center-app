@@ -114,6 +114,10 @@ export function getDefaultAutomationSchedules(): AutomationSchedule[] {
   return defaultSchedules.map(schedule => ({ ...schedule, updatedAt: new Date(0) }));
 }
 
+export function scheduleStatusForEnabled(enabled: boolean): "active" | "prepared" {
+  return enabled ? "active" : "prepared";
+}
+
 async function ensureAutomationSchedules() {
   const db = await getDb();
   if (!db) return;
@@ -137,7 +141,7 @@ export async function setAutomationScheduleEnabled(id: string, enabled: boolean)
   await ensureAutomationSchedules();
   await db.update(automationSchedules).set({
     enabled,
-    status: enabled ? "active" : "prepared",
+    status: scheduleStatusForEnabled(enabled),
     updatedAt: new Date(),
   }).where(eq(automationSchedules.id, id));
 }

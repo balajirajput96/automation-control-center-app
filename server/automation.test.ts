@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { allowedBadgeStatuses, implementationDependencies, implementationRows, serviceStatuses } from "../shared/automationData";
-import { getDefaultAutomationSchedules } from "./db";
+import { getDefaultAutomationSchedules, scheduleStatusForEnabled } from "./db";
 
 describe("automation control center data contracts", () => {
   it("limits service badge labels to active, prepared, or blocked", () => {
@@ -22,5 +22,10 @@ describe("automation control center data contracts", () => {
       "08:00 (Gemini Spark briefing)",
       "09:15 IST (Daily Automation Control and Antigravity Review)",
     ]);
+  });
+
+  it("retains configured schedules as prepared when disabled and restores active status when enabled", () => {
+    expect(scheduleStatusForEnabled(false)).toBe("prepared");
+    expect(scheduleStatusForEnabled(true)).toBe("active");
   });
 });
