@@ -2,6 +2,11 @@ name: Persistent Engineering Continuation
 
 on:
   workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/persistent-continuation.yml"
+      - "scripts/persistent-continuation.mjs"
+      - "scripts/github-health-inventory.mjs"
   schedule:
     - cron: "0 * * * *"
 
