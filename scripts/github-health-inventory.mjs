@@ -20,6 +20,12 @@ function headers(token) {
   };
 }
 
+export function filterActiveOwnedRepositories(repositories, owner = "balajirajput96") {
+  return repositories.filter(
+    (repo) => repo?.owner?.login === owner && repo.fork === false && repo.archived === false,
+  );
+}
+
 export function summarizeRepository(repo, latestRun, openPulls, error = null) {
   return {
     name: repo.full_name,
@@ -85,12 +91,15 @@ async function githubJson(path, token, params = {}) {
 }
 
 async function listRepositories(token, maxRepositories, env = process.env) {
+  const owner = env.AUDIT_OWNER || env.GITHUB_REPOSITORY_OWNER || "balajirajput96";
   const explicit = (env.WATCHLIST_REPOS || "").split(",").map(value => value.trim()).filter(Boolean);
   if (explicit.length) {
-    return Promise.all(explicit.slice(0, maxRepositories).map(name => githubJson(`/repos/${name}`, token)));
+    const requested = await Promise.all(explicit.map(name => githubJson(`/repos/${name}`, token)));
+    return filterActiveOwnedRepositories(requested, owner).slice(0, maxRepositories);
   }
   if (!accountTokenFromEnv(env) && env.GITHUB_REPOSITORY) {
-    return [await githubJson(`/repos/${env.GITHUB_REPOSITORY}`, token)];
+    const current = await githubJson(`/repos/${env.GITHUB_REPOSITORY}`, token);
+    return filterActiveOwnedRepositories([current], owner);
   }
   const repositories = [];
   for (let page = 1; repositories.length < maxRepositories; page += 1) {
@@ -102,7 +111,7 @@ async function listRepositories(token, maxRepositories, env = process.env) {
       direction: "desc",
     });
     if (!batch.length) break;
-    repositories.push(...batch);
+    repositories.push(...filterActiveOwnedRepositories(batch, owner));
     if (batch.length < 100) break;
   }
   return repositories.slice(0, maxRepositories);
