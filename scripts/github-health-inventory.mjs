@@ -5,7 +5,7 @@ const API = "https://api.github.com";
 const API_VERSION = "2022-11-28";
 
 function tokenFromEnv(env = process.env) {
-  return env.GH_TOKEN || env.GITHUB_TOKEN || "";
+  return env.REPO_AUDIT_TOKEN || env.GH_TOKEN || env.GITHUB_TOKEN || "";
 }
 
 function headers(token) {
