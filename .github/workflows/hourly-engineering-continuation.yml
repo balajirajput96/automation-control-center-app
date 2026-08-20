@@ -10,6 +10,12 @@ on:
         type: boolean
   schedule:
     - cron: "0 * * * *"
+  pull_request:
+    paths:
+      - ".github/workflows/hourly-engineering-continuation.yml"
+      - "scripts/hourly-continuation.mjs"
+      - "scripts/github-health-inventory.mjs"
+      - "package.json"
 
 permissions:
   contents: read
