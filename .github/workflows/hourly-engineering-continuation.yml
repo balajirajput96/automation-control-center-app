@@ -1,0 +1,90 @@
+name: Hourly Engineering Continuation
+
+on:
+  workflow_dispatch:
+    inputs:
+      reset_state:
+        description: "Start a new continuation state at cycle 0"
+        required: false
+        default: false
+        type: boolean
+  schedule:
+    - cron: "0 * * * *"
+
+permissions:
+  contents: read
+  actions: read
+  pull-requests: read
+
+concurrency:
+  group: hourly-engineering-continuation
+  cancel-in-progress: false
+
+jobs:
+  continuation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
+      REPO_AUDIT_TOKEN: ${{ secrets.REPO_AUDIT_TOKEN }}
+      MAX_REPOSITORIES: "250"
+      STATE_FILE: state/continuation-state.json
+      OUTPUT_DIR: artifacts/hourly-continuation
+      RECORD_FILE: artifacts/hourly-continuation/execution-record.jsonl
+    steps:
+      - name: Check out control center
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Restore previous continuation state
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p state
+          if [[ "${{ inputs.reset_state || 'false' }}" == "true" ]]; then
+            rm -f state/continuation-state.json
+          else
+            previous_run_id="$(gh api "repos/${GITHUB_REPOSITORY}/actions/workflows/hourly-engineering-continuation.yml/runs?per_page=20" --jq "[.workflow_runs[] | select(.id != ${GITHUB_RUN_ID} and .conclusion == \"success\")][0].id" || true)"
+            if [[ -n "${previous_run_id}" && "${previous_run_id}" != "null" ]]; then
+              gh run download "${previous_run_id}" --repo "${GITHUB_REPOSITORY}" --name hourly-continuation-state --dir state || true
+            fi
+          fi
+          if [[ ! -f state/continuation-state.json ]]; then
+            cat > state/continuation-state.json <<'JSON'
+          {
+            "executionNumber": 0,
+            "maxExecutions": 2400,
+            "status": "new",
+            "lastRunAt": null,
+            "nextRecommendedAction": "Run the first read-only health inventory.",
+            "remainingBlockers": []
+          }
+          JSON
+          fi
+
+      - name: Run bounded continuation inventory
+        run: npm run continuation
+
+      - name: Upload next continuation state
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hourly-continuation-state
+          path: state/continuation-state.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload health and execution artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hourly-continuation-${{ github.run_id }}
+          path: artifacts/hourly-continuation/
+          if-no-files-found: warn
+          retention-days: 30
