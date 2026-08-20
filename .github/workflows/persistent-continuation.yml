@@ -1,0 +1,49 @@
+name: Persistent Engineering Continuation
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 * * * *"
+
+permissions:
+  contents: read
+  actions: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: persistent-engineering-continuation
+  cancel-in-progress: true
+
+jobs:
+  continue:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      MAX_CYCLES: "2400"
+      STATE_PATH: artifacts/persistent-continuation/state.json
+      MAX_REPOSITORIES: "250"
+      OUTPUT_DIR: artifacts/persistent-continuation/github-health
+    steps:
+      - name: Check out control center
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run bounded read-only continuation
+        env:
+          REPO_AUDIT_TOKEN: ${{ secrets.REPO_AUDIT_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/persistent-continuation.mjs
+
+      - name: Upload continuation state and health evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: persistent-continuation-${{ github.run_id }}
+          path: artifacts/persistent-continuation/
+          if-no-files-found: error
+          retention-days: 90
