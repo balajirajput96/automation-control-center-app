@@ -4,8 +4,12 @@ import { join } from "node:path";
 const API = "https://api.github.com";
 const API_VERSION = "2022-11-28";
 
+function accountTokenFromEnv(env = process.env) {
+  return env.REPO_AUDIT_TOKEN || env.GH_TOKEN || "";
+}
+
 function tokenFromEnv(env = process.env) {
-  return env.REPO_AUDIT_TOKEN || env.GH_TOKEN || env.GITHUB_TOKEN || "";
+  return accountTokenFromEnv(env) || env.GITHUB_TOKEN || "";
 }
 
 function headers(token) {
@@ -80,10 +84,13 @@ async function githubJson(path, token, params = {}) {
   return payload;
 }
 
-async function listRepositories(token, maxRepositories) {
-  const explicit = (process.env.WATCHLIST_REPOS || "").split(",").map(value => value.trim()).filter(Boolean);
+async function listRepositories(token, maxRepositories, env = process.env) {
+  const explicit = (env.WATCHLIST_REPOS || "").split(",").map(value => value.trim()).filter(Boolean);
   if (explicit.length) {
     return Promise.all(explicit.slice(0, maxRepositories).map(name => githubJson(`/repos/${name}`, token)));
+  }
+  if (!accountTokenFromEnv(env) && env.GITHUB_REPOSITORY) {
+    return [await githubJson(`/repos/${env.GITHUB_REPOSITORY}`, token)];
   }
   const repositories = [];
   for (let page = 1; repositories.length < maxRepositories; page += 1) {
@@ -117,7 +124,7 @@ export async function collectReport(env = process.env) {
   const token = tokenFromEnv(env);
   if (!token) throw new Error("Missing GH_TOKEN or GITHUB_TOKEN; refusing to make unauthenticated account-wide requests.");
   const maxRepositories = Math.max(1, Math.min(Number(env.MAX_REPOSITORIES || 250), 500));
-  const repositories = await listRepositories(token, maxRepositories);
+  const repositories = await listRepositories(token, maxRepositories, env);
   const results = [];
   for (let index = 0; index < repositories.length; index += 8) {
     const batch = repositories.slice(index, index + 8);

@@ -36,7 +36,8 @@ jobs:
 
       - name: Collect read-only repository health
         env:
-          REPO_AUDIT_TOKEN: ${{ secrets.REPO_AUDIT_TOKEN || github.token }}
+          REPO_AUDIT_TOKEN: ${{ secrets.REPO_AUDIT_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: node scripts/github-health-inventory.mjs
 
       - name: Upload inventory artifacts
