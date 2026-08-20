@@ -28,7 +28,8 @@ jobs:
       MAX_CYCLES: "2400"
       STATE_PATH: artifacts/persistent-continuation/state.json
       MAX_REPOSITORIES: "250"
-      OUTPUT_DIR: artifacts/persistent-continuation/github-health
+      OUTPUT_DIR: artifacts/persistent-continuation/evidence
+      CONTINUATION_CACHE_KEY: persistent-continuation-${{ github.ref_name }}-${{ github.run_id }}
     steps:
       - name: Check out control center
         uses: actions/checkout@v4
@@ -38,12 +39,27 @@ jobs:
         with:
           node-version: 22
 
+      - name: Restore previous continuation state
+        uses: actions/cache/restore@v4
+        with:
+          path: artifacts/persistent-continuation
+          key: persistent-continuation-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: |
+            persistent-continuation-${{ github.ref_name }}-
+            persistent-continuation-main-
+
       - name: Run bounded read-only continuation
         env:
           REPO_AUDIT_TOKEN: ${{ secrets.REPO_AUDIT_TOKEN }}
           GITHUB_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: node scripts/persistent-continuation.mjs
+
+      - name: Save continuation state for the next cycle
+        uses: actions/cache/save@v4
+        with:
+          path: artifacts/persistent-continuation
+          key: persistent-continuation-${{ github.ref_name }}-${{ github.run_id }}
 
       - name: Upload continuation state and health evidence
         uses: actions/upload-artifact@v4
