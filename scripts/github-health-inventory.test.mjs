@@ -1,6 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { renderMarkdown, summarizeRepository } from "./github-health-inventory.mjs";
+import {
+  filterActiveOwnedRepositories,
+  renderMarkdown,
+  summarizeRepository,
+} from "./github-health-inventory.mjs";
+
+test("filters the active non-fork repositories owned by the audit account", () => {
+  const result = filterActiveOwnedRepositories([
+    { full_name: "balajirajput96/active", owner: { login: "balajirajput96" }, fork: false, archived: false },
+    { full_name: "balajirajput96/fork", owner: { login: "balajirajput96" }, fork: true, archived: false },
+    { full_name: "balajirajput96/archived", owner: { login: "balajirajput96" }, fork: false, archived: true },
+    { full_name: "other-owner/collaborator", owner: { login: "other-owner" }, fork: false, archived: false },
+  ]);
+  assert.deepEqual(result.map(({ full_name }) => full_name), ["balajirajput96/active"]);
+});
 
 test("summarizes a repository without exposing credentials", () => {
   const result = summarizeRepository(
