@@ -1,3 +1,6 @@
+# This workflow is manual/PR-only. The authoritative hourly scheduler is
+# .github/workflows/hourly-engineering-continuation.yml; keeping one hourly
+# trigger prevents duplicate inventory cycles and competing state.
 name: Persistent Engineering Continuation
 
 on:
@@ -7,8 +10,6 @@ on:
       - ".github/workflows/persistent-continuation.yml"
       - "scripts/persistent-continuation.mjs"
       - "scripts/github-health-inventory.mjs"
-  schedule:
-    - cron: "0 * * * *"
 
 permissions:
   contents: read
